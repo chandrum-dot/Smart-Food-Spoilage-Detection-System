@@ -1,100 +1,71 @@
-# Smart Food Spoilage Detection System - IoT-Based Atmospheric Monitoring
+# Smart Food Spoilage Detection System
 
-A robust, IoT-powered monitoring system designed to detect and alert users of food spoilage in real-time. Utilizing advanced gas sensors (MQ-series), temperature, and humidity monitoring, the system analyzes atmospheric conditions within storage environments to provide early warning of bacterial activity and decay.
+An enterprise-grade, IoT-powered environment monitoring framework built for ESP32. This system provides real-time, high-precision chemical analysis of food storage environments, leveraging multi-gas and pH telemetry to algorithmically determine spoilage levels before they become apparent to the human senses.
 
-> **Quick Mental Model:** Sensors continuously monitor gas and humidity. The ESP32 processes this data locally and triggers an alert if spoilage thresholds are exceeded. You get a notification on your device via the IoT Cloud. That is it.
->
-> ---
->
-> ## Features
->
-> - **Real-Time Atmospheric Monitoring**: Uses MQ sensors to detect ammonia, methane, and other gases associated with organic decomposition.
-> - - **Dual-Threshold Detection Logic**: Combines gas concentration with humidity spikes to reduce false positives and ensure accurate spoilage detection.
->   - - **IoT Cloud Integration**: Seamless connectivity with Blynk/IoT platforms for remote monitoring and real-time push notifications.
->     - - **Energy-Efficient Operation**: Optimized power consumption for long-term battery-powered deployment in refrigerators or pantries.
->       - - **Local Alert System**: Includes on-board LED and buzzer indicators for immediate local notification of detected spoilage.
->         - - **Historical Data Logging**: Automatically logs atmospheric trends to the cloud, allowing for longitudinal shelf-life analysis.
->          
->           - ---
->
-> ## Architecture
->
-> ```
->  Sensors (MQ, DHT)
->    |
->    V
-> [Local ESP32 Processing]
->    |
->    V
->    +- [Threshold Logic Check] ---> Buzzer/LED Alert (Local)
->    |
->    V
-> [IoT Cloud / Blynk]
->    |
->    V
-> User Notification (Mobile/Dashboard)
-> ```
->
-> ### Detection Decision Logic
-> ```
-> Read Sensors
->      |
->      V
-> Gas level > Threshold? -- YES --> Humid Spike? -- YES --> TRIGGER_SPOILAGE_ALERT
->      |                           |
->      NO                          NO
->      |                           |
->      V                           V
-> STABLE_STATE              POSSIBLE_FERMENTATION (Log Only)
-> ```
->
-> ---
->
-> ## Quick Start
->
-> ```cpp
-> #include <ESP32.h>
-> #include <BlynkSimpleEsp32.h>
->
-> char auth[] = "YourAuthToken";
-> const int GAS_PIN = 34;
->
-> void setup() {
->     Serial.begin(115200);
->     Blynk.begin(auth, "SSID", "PASS");
-> }
->
-> void loop() {
->     int gasLevel = analogRead(GAS_PIN);
->     Blynk.virtualWrite(V1, gasLevel);
->
->     if (gasLevel > 400) {
->         Blynk.logEvent("food_spoilage_alert", "Warning: Spoilage detected!");
->     }
->     Blynk.run();
-> }
-> ```
->
-> ---
->
-> ## Hardware
->
-> - **MCU:** ESP32 Dev Module
-> - - **Sensors:** MQ-135 (Air Quality), DHT11 (Temp/Humidity)
->   - - **Alerts:** 5V Active Buzzer, Red/Green LEDs
->     - - **Power:** 5V USB or Li-Po Battery
->      
->       - ---
->
-> ## Dependencies
->
-> - Blynk Library
-> - - DHT Sensor Library
->   - - Adafruit Unified Sensor Library
->    
->     - ---
->
-> ## License
->
-> MIT License
-> 
+Quick Mental Model: The hardware continuously samples the localized chemical environment. The internal engine processes raw analog data into calibrated parts-per-million (PPM) and pH scales, applies threshold-based anomaly detection, and dispatches critical alerts over the cloud via Blynk IoT. You react to the dashboard. That's it.
+
+## Features
+
+- **Multi-Vector Chemical Profiling:** Integrates MQ4 (Methane) and MQ6 (LPG/Butane) sensors to detect the precise off-gassing signatures of bacterial decomposition in complex carbohydrates and proteins.
+- **Dynamic Acidity Tracking:** Utilizes a dedicated analog pH probe to monitor localized acidity changes, the primary leading indicator of spoilage in dairy, meat, and fermented goods.
+- **Asynchronous Cloud Telemetry:** Operates on a non-blocking RTOS-style loop, pushing structured telemetry payloads to a Blynk cloud dashboard without interrupting sensor sampling rates.
+- **Active Self-Healing & Calibration:** Includes built-in environmental baselining on boot to account for ambient room conditions, preventing false positives from background chemical noise.
+- **Fail-Safe Alerting Engine:** Automatically triggers high-priority push notifications and local buzzer alarms when critical spoilage thresholds are breached.
+
+## Architecture
+
+  [Physical Environment]            [Core Processing Engine]              [IoT Telemetry]
+           |                                   |                                  |
+               Off-Gassing --------+                    |                                  |
+                                       |            +-------v-------+                  +-------v-------+
+                                         MQ4 Sensor (CH4) -----+----------->|  ADC Core 1   |                  |  Blynk Cloud  |
+                                                                 |            |  (Filtering)  |                  |  (Dashboard)  |
+                                                                   MQ6 Sensor (LPG) -----+----------->|               |--- WiFi/TCP ---->|               |
+                                                                                           |            +---------------+                  |  - Real-time  |
+                                                                                             pH Probe -------------+            |  Logic Core 0 |                  |  - History    |
+                                                                                                                                  | (Thresholds)  |                  |  - Push Notifs|
+                                                                                                                                                                       +-------+-------+                  +---------------+
+                                                                                                                                                                       
+                                                                                                                                                                       ## Integration & Setup
+                                                                                                                                                                       
+                                                                                                                                                                       ### Mode 1 -- Direct Cloud Integration (Recommended)
+                                                                                                                                                                       This mode handles all network overhead, maintaining a persistent TCP connection to the Blynk servers while managing sensor reads asynchronously.
+                                                                                                                                                                       
+                                                                                                                                                                       ```cpp
+                                                                                                                                                                       #include <WiFi.h>
+                                                                                                                                                                       #include <BlynkSimpleEsp32.h>
+                                                                                                                                                                       #include "SpoilageEngine.h"
+                                                                                                                                                                       
+                                                                                                                                                                       SpoilageEngine engine;
+                                                                                                                                                                       
+                                                                                                                                                                       void setup() {
+                                                                                                                                                                         Serial.begin(115200);
+                                                                                                                                                                           engine.setCredentials("TMPL_ID", "AUTH", "SSID", "PASS");
+                                                                                                                                                                             engine.attachMQ4(34);
+                                                                                                                                                                               engine.attachMQ6(35);
+                                                                                                                                                                                 engine.attachPH(32);
+                                                                                                                                                                                   engine.init();
+                                                                                                                                                                                   }
+                                                                                                                                                                                   
+                                                                                                                                                                                   void loop() {
+                                                                                                                                                                                   
+                                                                                                                                                                                   }
+                                                                                                                                                                                   ```
+                                                                                                                                                                                   
+                                                                                                                                                                                   ## Config Reference
+                                                                                                                                                                                   - mq4_threshold = 400 PPM
+                                                                                                                                                                                   - mq6_threshold = 350 PPM
+                                                                                                                                                                                   - ph_acidic_limit = 5.5
+                                                                                                                                                                                   - ph_alkaline_limit = 8.5
+                                                                                                                                                                                   
+                                                                                                                                                                                   Deployment Best Practices:
+                                                                                                                                                                                   - Burn-in Time: Gas sensors (MQ series) require a minimum 24-48 hour "burn-in" period.
+                                                                                                                                                                                   - Power: The internal heaters of MQ sensors draw significant current (~150mA each). A standalone 5V 2A power adapter is strongly recommended.
+                                                                                                                                                                                   
+                                                                                                                                                                                   ## Hardware Specifications
+                                                                                                                                                                                   - MCU: ESP32 Dev Module (38-pin)
+                                                                                                                                                                                   - Sensors: MQ4, MQ6, Analog pH Probe
+                                                                                                                                                                                   - Power Architecture: 5V 2A Adapter -> Common GND for all components.
+                                                                                                                                                                                   
+                                                                                                                                                                                   ## License
+                                                                                                                                                                                   MIT License
